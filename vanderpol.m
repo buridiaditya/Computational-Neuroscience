@@ -19,7 +19,7 @@ subplot(2,3,4)
 plot(y(:,1),y(:,2))
 title('Phase plane plot u = 0.1 ode15s')
 
-
+dYdt = y;
 y_init = [1; 0];
 deltaT = [0, 100];
 mu = 1; 
