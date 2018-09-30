@@ -1,9 +1,9 @@
 global Iext
 global Phi
 global Gca
-global Gk
+global Gk Gna
 global Gl
-global Vca
+global Vca Vna
 global Vk
 global Vl
 global V1
@@ -63,9 +63,24 @@ disp(A);
 
 
 deltaT = [0, 500];
-equiPoint1 = equiPoint
-
+equiPoint1 = equiPoint;
+legend('V Nullcline', 'm nullcline', 'Gradients' ,'Equilibrium point')
 %%% Question 5
+figure(2)
+
+V = -100:1:100;
+plot(V,100*nc1(V)); hold on;
+
+ylim([0 100])
+xlim([-100 100])
+
+plot(V,100*nc2(V));
+plot(equiPoint(1),100*equiPoint(2),'r*')
+
+[V,w] = meshgrid(-100:5:100,0:0.1:1);
+dV = (Iext -Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gk*w.*(V-Vk) - Gl*(V-Vl))/C;
+dw = (0.5*(1+tanh((V-V3)/V4)) - w)*Phi.*cosh((V-V3)/(V4*2));
+q = quiver(V,100*w,dV,100*dw); 
 
 % Action potential 
 
@@ -84,33 +99,47 @@ Phi = 0.04;
 [t, y] = ode45(@mle4ode,deltaT,equiPoint1);
 plot(y(:,1),100*y(:,2))
 
+legend('V Nullcline', 'm nullcline', 'Gradients' ,'Equilibrium point','Phi=0.01','Phi=0.02','Phi=0.04');
+
 %%% Question 6
+figure(3)
+
+
+V = -100:1:100;
+plot(V,100*nc1(V)); hold on;
+
+ylim([0 100])
+xlim([-100 100])
+
+plot(V,100*nc2(V));
+plot(equiPoint(1),100*equiPoint(2),'r*')
 
 Iext = 0;
 Phi = 0.02;
 
-equiPoint1(1) = equiPoint(1) + 300/C;
-[t, y] = ode45(@mle4ode,deltaT,equiPoint1);
-plot(y(:,1),100*y(:,2))
-
-equiPoint1(1) = equiPoint(1) + 500/C;
-[t, y] = ode45(@mle4ode,deltaT,equiPoint1);
-plot(y(:,1),100*y(:,2))
-
-equiPoint1(1) = equiPoint(1) + 2000/C;
-[t, y] = ode45(@mle4ode,deltaT,equiPoint1);
-plot(y(:,1),100*y(:,2))
-
-equiPoint1(1) = equiPoint(1) + 3000/C;
-[t, y] = ode45(@mle4ode,deltaT,equiPoint1);
-plot(y(:,1),100*y(:,2))
+[V,w] = meshgrid(-100:5:100,0:0.1:1);
+dV = (Iext -Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gk*w.*(V-Vk) - Gl*(V-Vl))/C;
+dw = (0.5*(1+tanh((V-V3)/V4)) - w)*Phi.*cosh((V-V3)/(V4*2));
+q = quiver(V,100*w,dV,100*dw); 
 
 
-legend('V Nullcline', 'm nullcline', 'Gradients' ,'Equilibrium point','Phi=0.01','Phi=0.02','Phi=0.04','Excitation 1','Excitation 2','Excitation 3','Excitation 4');
+offsets = 0:1:200;
+Peaks = zeros(size(offsets));
+for i = 1:length(offsets) 
+    equiPoint1(1) = equiPoint(1) + offsets(i);
+    [t, y] = ode45(@mle4ode,deltaT,equiPoint1);
+    plot(y(:,1),100*y(:,2));
+    Peaks(i) = max(y(:,1));
+end
+figure(7)
+plot(equiPoint(1)+offsets,Peaks);
+
+
+legend('V Nullcline', 'm nullcline', 'Gradients' ,'Equilibrium point','Excitation 1','Excitation 2','Excitation 3','Excitation 4');
 
 %%% Question 7
 
-figure(2)
+figure(4)
 
 Iext = 86;
 
@@ -158,6 +187,41 @@ plot(y(:,1),100*y(:,2))
 %%% Question 9
 
 %%% Question 10 
+
+%%% Question 11
+
+%%% Question 12
+figure(5)
+
+Iext = 0;
+Gk = 36;
+Gl = 0.3;
+Gna = 120;
+Vna = 55;
+Vk = -72;
+Vl = 10;
+C = 1;
+
+nc1 = @(V)(Iext-Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gl*(V-Vl))./(Gk*(V-Vk));
+nc2 = @(V)0.5*(1+tanh((V-V3)/V4));
+V = -100:1:100;
+plot(V,100*nc1(V)); hold on;
+
+ylim([0 100])
+xlim([-100 100])
+
+plot(V,100*nc2(V));
+figure(6)
+% Quiver
+[V,m,n] = meshgrid(-100:5:100,0:0.1:1,0:0.1:1);
+alphan = -0.01*(V+50)./(exp(-(V+50)/10)-1+10^-12);
+betan = 0.125*exp(-(V+60)/80);
+alpham = -0.1*(V+35)./(exp(-(V+35)/10)-1 + 10^-12);
+betam = 4*exp(-(V+60)/18);
+dVdt = (Iext -Gna.*m.^3.*(V-Vna) - Gk*n.^4.*(V-Vk) - Gl*(V-Vl))/C;
+dmdt = alpham.*(1-m) - betam.*m;
+dndt = alphan.*(1-n) - betan.*n;
+q = quiver3(V,100*m,100*n,dVdt,100*dmdt,100*dndt); 
 
 function dYdt = mle4ode(t,y)
     global Iext
@@ -226,17 +290,22 @@ end
 
 function dYdt = hh4ode(t,y)
     global Iext
-    global Gca
     global Gk
-    global Gl
-    global Vca
+    global Gl Gna
+    global Vna
     global Vk
     global Vl
     global C
     V = y(1);
-    w = y(2);
-    dYdt1 = (Iext -Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gk*w.*(V-Vk) - Gl*(V-Vl))/C;
-    dYdt2 = (0.5*(1+tanh((V-V3)/V4)) - w)*Phi.*cosh((V-V3)/(V4*2));
-    dYdt = [dYdt1;dYdt2]; 
+    n = y(2);
+    m = y(3);
+    alphan = -0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12);
+    betan = 0.125*exp(-(V+60)/80);
+    alpham = -0.1*(V+35)/(exp(-(V+35)/10)-1 + 10^-12);
+    betam = 4*exp(-(V+60)/18);
+    dVdt = (Iext -Gna*m^3*(V-Vna) - Gk*n^4*(V-Vk) - Gl*(V-Vl))/C;
+    dmdt = alpham*(1-m) - betam*m;
+    dndt = alphan*(1-n) - betan*n;
+    dYdt = [dVdt;dndt;dmdt]; 
 end
 
