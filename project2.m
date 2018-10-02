@@ -27,7 +27,9 @@ V4 = 30;
 C = 20;
 
 
-
+global equiP
+options = odeset('Events',@myEvent);
+optionsfsolve = optimset('Display','off');
 %%% Question 2
 
 figure(1)
@@ -96,6 +98,7 @@ plot(y(:,1),100*y(:,2))
 Phi = 0.02;
 [t, y] = ode45(@mle4ode,deltaT,equiPoint1);
 plot(y(:,1),100*y(:,2))
+
 
 Phi = 0.04;
 [t, y] = ode45(@mle4ode,deltaT,equiPoint1);
@@ -189,17 +192,20 @@ plot(y(:,1),100*y(:,2))
 [t, y] = ode45(@mle4ode,deltaT,[-27.9;0.17]);
 plot(y(:,1),100*y(:,2))
 
-legend('V Nullcline', 'm nullcline', 'Gradients' ,'Equilibrium point','From equilibrium point of Iext = 0','On equilibrium Point','Start point [-27.9;0.17]');
 
 %%% Question 8
-
+deltaT = [0, 1000]
 equiPoint1(1) = equiPoint2(1) +1 ;
 [t, y] = ode45(@mle4odeRev,deltaT,equiPoint1);
 plot(y(:,1),100*y(:,2))
 
+legend('V Nullcline', 'm nullcline', 'Gradients' ,'Equilibrium point','From equilibrium point of Iext = 0','On equilibrium Point','Start point [-27.9;0.17]','Running the system backward in time');
+
+
 %%% Question 9
 
 figure(6)
+
 
 %%% Iext = 80
 
@@ -207,27 +213,41 @@ for i = 80:1:100
 
     Iext = i;
 
-    nc1 = @(V)(Iext-Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gl*(V-Vl))./(Gk*(V-Vk));
-    nc2 = @(V)0.5*(1+tanh((V-V3)/V4));
-    V = -100:1:100;
-    plot(V,100*nc1(V)); hold on;
-
-    ylim([0 100])
-    xlim([-100 100])
-
-    plot(V,100*nc2(V));
+%     nc1 = @(V)(Iext-Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gl*(V-Vl))./(Gk*(V-Vk));
+%     nc2 = @(V)0.5*(1+tanh((V-V3)/V4));
+%     V = -100:1:100;
+%     plot(V,100*nc1(V)); hold on;
+% 
+%     ylim([0 100])
+%     xlim([-100 100])
+% 
+%     plot(V,100*nc2(V));
+%     
+%     y_init = [-30; 0];
+%     equiPoint2 = fsolve(@mle,y_init);
+%     plot(equiPoint2(1),100*equiPoint2(2),'r*')
+%     disp(equiPoint2)
+%     
     
-    y_init = [-60; 0];
-    equiPoint2 = fsolve(@mle,y_init);
-    plot(equiPoint2(1),100*equiPoint2(2),'r*')
-    disp(equiPoint2)
-
+    equiP = equiPoint2;
+    [t, y,te,ye,ze] = ode45(@mle4ode,deltaT,equiPoint,options);
+    if size(ze) == 1
+        disp("No spiking");
+        disp(i);
+    end        
+    %plot(y(:,1),100*y(:,2))
+    plot(t,y(:,1),'DisplayName',int2str(i)); hold on;
 end
 % Quiver
 % [V,w] = meshgrid(-100:5:100,0:0.1:1);
 % dV = (Iext -Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gk*w.*(V-Vk) - Gl*(V-Vl))/C;
 % dw = (0.5*(1+tanh((V-V3)/V4)) - w)*Phi.*cosh((V-V3)/(V4*2));
 % q = quiver(V,100*w,dV,100*dw); 
+Iext=86;
+[t, y,te,ye,ze] = ode45(@mle4ode,deltaT,equiPoint,options);
+plot(t,y(:,1)); hold on;
+legend
+figure(7)
 
 % Finding equilibrium points
 y_init = [-60; 0];
@@ -328,7 +348,7 @@ V4 = 17.4;
 C = 20;
 
 
-figure(7)
+figure(8)
 % Plotting nullclines
 nc1 = @(V)(Iext-Gca*0.5*(1+tanh((V-V1)/V2)).*(V-Vca) - Gl*(V-Vl))./(Gk*(V-Vk));
 nc2 = @(V)0.5*(1+tanh((V-V3)/V4));
@@ -354,18 +374,29 @@ disp(equiPoint)
 
 y_init = [-20; 0];
 equiPoint2 = fsolve(@mle,y_init);
-plot(equiPoint2(1),100*equiPoint2(2),'r*')
-disp(equiPoint)
+plot(equiPoint2(1),100*equiPoint2(2),'g*')
+disp(equiPoint2)
 
 y_init = [10; 0];
 equiPoint3 = fsolve(@mle,y_init);
-plot(equiPoint3(1),100*equiPoint3(2),'r*')
-disp(equiPoint)
+plot(equiPoint3(1),100*equiPoint3(2),'b*')
+disp(equiPoint3)
 
 % Jacobi and Eigen values at equilibrium points 
 syms V w
 J = jacobian([ (Iext-Gca*0.5*(1+tanh((V-V1)/V2))*(V-Vca) - Gk*w*(V-Vk) - Gl*(V-Vl))/C, (0.5*(1+tanh((V-V3)/V4)) - w)*Phi*cosh((V-V3)/(V4*2))],[V,w]);
 A = double(subs(J,[V,w],equiPoint'));
+[V,D] = eig(A)
+
+syms V w
+J = jacobian([ (Iext-Gca*0.5*(1+tanh((V-V1)/V2))*(V-Vca) - Gk*w*(V-Vk) - Gl*(V-Vl))/C, (0.5*(1+tanh((V-V3)/V4)) - w)*Phi*cosh((V-V3)/(V4*2))],[V,w]);
+
+A = double(subs(J,[V,w],equiPoint2'));
+[V,D] = eig(A)
+syms V w
+J = jacobian([ (Iext-Gca*0.5*(1+tanh((V-V1)/V2))*(V-Vca) - Gk*w*(V-Vk) - Gl*(V-Vl))/C, (0.5*(1+tanh((V-V3)/V4)) - w)*Phi*cosh((V-V3)/(V4*2))],[V,w]);
+
+A = double(subs(J,[V,w],equiPoint3'));
 [V,D] = eig(A)
 
 
@@ -388,7 +419,7 @@ plot(y(:,1),100*y(:,2))
 %%% Question 11
 
 %%% Question 12
-% figure(8)
+figure(9)
 
 Iext = 0;
 Gk = 36;
@@ -418,7 +449,99 @@ C = 1;
 % dVdt = (Iext -Gna.*m.^3.*(V-Vna) - Gk*n.^4.*(V-Vk) - Gl*(V-Vl))/C;
 % dmdt = alpham.*(1-m) - betam.*m;
 % dndt = alphan.*(1-n) - betan.*n;
+
+% V = -100:1:100;
+% plot(V,100*nc1(V)); hold on;
+
+% ylim([0 100])
+% xlim([-100 100])
+
+% plot(V,100*nc2(V));
+
+
 % q = quiver3(V,100*m,100*n,dVdt,100*dmdt,100*dndt); 
+
+%%% Question 13
+
+V = -60;
+alphan = -0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12);
+betan = 0.125*exp(-(V+60)/80);
+alpham = -0.1*(V+35)/(exp(-(V+35)/10)-1 + 10^-12);
+betam = 4*exp(-(V+60)/18);
+alphah = 0.07*(exp(-(V+60)/20));
+betah = 1/(exp(-(V+30)/10)+1);
+
+n = alphan/(alphan + betan);
+m = alpham/(alpham + betam);
+h = alphah/(alphah + betah);
+
+El = V - (Iext -Gna*m^3*h*(V-Vna) - Gk*n^4*(V-Vk))/Gl;
+display(El)
+
+%%% Question 14
+Iext=0;
+nc1 = @(V)((Iext - Gk*((-0.01*(V+50)./(exp(-(V+50)/10)-1+10^-12))./((-0.01*(V+50)./(exp(-(V+50)/10)-1+10^-12))+ (0.125*exp(-(V+60)/80)))).^4.*(V-Vk) - Gl*(V-Vl))./(Gna*((0.07*(exp(-(V+60)/20)))./((0.07*(exp(-(V+60)/20)))+ (1./(exp(-(V+30)/10)+1)))).*(V-Vna))).^1/3;
+nc2 = @(V) (-0.1*(V+35)./(exp(-(V+35)/10)-1 + 10^-12))./((-0.1*(V+35)./(exp(-(V+35)/10)-1 + 10^-12))+ (4*exp(-(V+60)/18)));
+
+
+V = -100:1:100;
+plot(V,100*nc1(V)); hold on;
+
+ylim([0 100])
+xlim([-100 100])
+
+plot(V,100*nc2(V));
+
+
+Iext = 0;
+y_init = [-40; 0;0;0];
+equiPoint3 = fsolve(@hh,y_init,optionsfsolve);
+plot(equiPoint3(1),100*equiPoint3(3),'b*')
+disp(equiPoint3)
+
+syms V m
+J = jacobian([ (Iext -(Gna*m^3*((0.07*(exp(-(V+60)/20)))/((0.07*(exp(-(V+60)/20)))+ (1/(exp(-(V+30)/10)+1))))*(V-Vna)) - Gk*((-0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12))/((-0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12))+ (0.125*exp(-(V+60)/80))))^4*(V-Vk) - Gl*(V-Vl))/C, (-0.1*(V+35)/(exp(-(V+35)/10)-1 + 10^-12))*(1-m) - (4*exp(-(V+60)/18))*m],[V,m]);
+equi = zeros(1,2);
+equi(1) = equiPoint3(1);
+equi(2) = equiPoint3(3);
+A = double(subs(J,[V,m],equi));
+[V,D] = eig(A)
+if D(1,1) < 0 && D(2,2) < 0
+    display(i)
+    display("Stable")
+else
+    display(i)
+    display("Unstable")
+end
+
+
+
+for i = 8:1:12
+    Iext = i;
+    y_init = [-40; 0;0;0];
+    equiPoint3 = fsolve(@hh,y_init,optionsfsolve);
+    plot(equiPoint3(1),100*equiPoint3(3),'b*')
+    disp(equiPoint3)
+
+    syms V m
+    J = jacobian([ (Iext -(Gna*m^3*((0.07*(exp(-(V+60)/20)))/((0.07*(exp(-(V+60)/20)))+ (1/(exp(-(V+30)/10)+1))))*(V-Vna)) - Gk*((-0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12))/((-0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12))+ (0.125*exp(-(V+60)/80))))^4*(V-Vk) - Gl*(V-Vl))/C, (-0.1*(V+35)/(exp(-(V+35)/10)-1 + 10^-12))*(1-m) - (4*exp(-(V+60)/18))*m],[V,m]);
+    equi = zeros(1,2);
+    equi(1) = equiPoint3(1);
+    equi(2) = equiPoint3(3);
+    A = double(subs(J,[V,m],equi));
+    [V,D] = eig(A)
+    if D(1,1) < 0 && D(2,2) < 0
+        display(i)
+        display("Stable")
+    else
+        display(i)
+        display("Unstable")
+    end
+        
+end    
+%equiPoint3(1) = equiPoint3(1) ;
+%[t, y] = ode45(@hh4ode,deltaT,equiPoint3);
+%plot(y(:,1),100*y(:,3))
 
 
 function dYdt = mle4ode(t,y)
@@ -486,6 +609,39 @@ function dYdt = mle(y)
 end
 
 
+function dYdt = hh(y)
+    global Iext
+    global Gk
+    global Gl Gna
+    global Vna
+    global Vk
+    global Vl
+    global C
+    V = y(1);
+    n = y(2);
+    m = y(3);
+    h = y(4);
+    alphan = -0.01*(V+50)/(exp(-(V+50)/10)-1);
+    if isnan(alphan)
+        alphan = 1;
+    end
+    betan = 0.125*exp(-(V+60)/80);
+    alpham = -0.1*(V+35)/(exp(-(V+35)/10)-1);
+    if isnan(alpham)
+        alpham = 1;
+    end
+    betam = 4*exp(-(V+60)/18);
+    alphah = 0.07*(exp(-(V+60)/20));
+    betah = 1/(exp(-(V+30)/10)+1);
+    
+    dVdt = (Iext -Gna*m^3*h*(V-Vna) - Gk*n^4*(V-Vk) - Gl*(V-Vl))/C;
+    dmdt = alpham*(1-m) - betam*m;
+    dndt = alphan*(1-n) - betan*n;
+    dhdt = alphah*(1-h) - betah*h;
+    dYdt = [dVdt;dndt;dmdt;dhdt]; 
+end
+
+
 function dYdt = hh4ode(t,y)
     global Iext
     global Gk
@@ -497,13 +653,34 @@ function dYdt = hh4ode(t,y)
     V = y(1);
     n = y(2);
     m = y(3);
-    alphan = -0.01*(V+50)/(exp(-(V+50)/10)-1+10^-12);
+    h = y(4);
+    alphan = -0.01*(V+50)/(exp(-(V+50)/10)-1);
+    if isnan(alphan)
+        alphan = 1;
+    end
     betan = 0.125*exp(-(V+60)/80);
-    alpham = -0.1*(V+35)/(exp(-(V+35)/10)-1 + 10^-12);
+    alpham = -0.1*(V+35)/(exp(-(V+35)/10)-1);
+    if isnan(alpham)
+        alpham = 1;
+    end
     betam = 4*exp(-(V+60)/18);
-    dVdt = (Iext -Gna*m^3*(V-Vna) - Gk*n^4*(V-Vk) - Gl*(V-Vl))/C;
+    alphah = 0.07*(exp(-(V+60)/20));
+    betah = 1/(exp(-(V+30)/10)+1);
+    
+    dVdt = (Iext -Gna*m^3*h*(V-Vna) - Gk*n^4*(V-Vk) - Gl*(V-Vl))/C;
     dmdt = alpham*(1-m) - betam*m;
     dndt = alphan*(1-n) - betan*n;
-    dYdt = [dVdt;dndt;dmdt]; 
+    dhdt = alphah*(1-h) - betah*h;
+    dYdt = [dVdt;dndt;dmdt;dhdt]; 
 end
 
+function [value, isterminal, direction] = myEvent(t,y)
+    global equiP
+    if (norm(y-equiP) < 10^-3)
+        value = 0;
+    else
+        value = 1;
+    end
+    isterminal = 1;
+    direction = 0;
+end
