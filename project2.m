@@ -12,6 +12,7 @@ global V3
 global V4
 global C
 global fni
+global hinit
 
 Iext = 0;
 Phi = 0.02;
@@ -499,7 +500,7 @@ equiPoint1 = equiPoint3;
 
 for i = 0:1:20
     equiPoint1(1) = equiPoint3(1) + i ;
-    deltaT = [0,2000];
+    deltaT = [0,1000];
     [t, y] = ode45(@hh4ode,deltaT,equiPoint1);
     plot(y(:,1),100*y(:,3))
 end
@@ -507,7 +508,7 @@ end
 figure(10)
 for i = 0:1:20
     equiPoint1(1) = equiPoint3(1) + i ;
-    deltaT = [0,2000];
+    deltaT = [0,1000];
     [t, y] = ode45(@hh4ode,deltaT,equiPoint1);
     plot(t,y(:,1)); hold on;
 end
@@ -606,6 +607,42 @@ plot(y(:,1),100*y(:,3))
 
 %%% Question 17 
 
+figure(12)
+
+Iext = 0;
+
+y_init = [-60; 0;0;0];
+equiPoint3 = fsolve(@hh,y_init,optionsfsolve);
+plot(equiPoint3(1),100*equiPoint3(3),'b*')
+disp(equiPoint3)
+equiPoint1 = equiPoint3;
+hinit = equiPoint3(4);
+equiP(1) = equiPoint3(1);
+equiP(2) = equiPoint3(2);
+for i = 0:1:20
+    equiP(1) = equiPoint3(1) + i ;
+    deltaT = [0,1000];
+    [t, y] = ode45(@hhReduced4ode,deltaT,equiP);
+    plot(t,y(:,1)); hold on;
+end
+ylim([-100 100])
+xlim([0 1000])
+
+%%
+
+figure(13)
+
+
+
+for i = 0:1:20
+    equiP(1) = equiPoint3(1) + i ;
+    deltaT = [0,1000];
+    [t, y] = ode45(@hhReduced4ode,deltaT,equiP);
+    plot(y(:,1),y(:,2)); hold on;
+end
+ylim([-100 100])
+xlim([0 1000])
+
 function dYdt = mle4ode(t,y)
     global Iext
     global Phi
@@ -671,6 +708,43 @@ function dYdt = mle(y)
 end
 
 
+function dYdt = hhReduced4ode(t,y)
+    global Iext
+    global Gk
+    global Gl Gna
+    global Vna
+    global Vk
+    global Vl
+    global C
+    global hinit
+    V = y(1);
+    n = y(2);
+    
+    alphan = -0.01*(V+50)/(exp(-(V+50)/10)-1);
+    if isnan(alphan)
+        alphan = 1;
+    end
+    betan = 0.125*exp(-(V+60)/80);
+    alpham = -0.1*(V+35)/(exp(-(V+35)/10)-1);
+    if isnan(alpham)
+        alpham = 1;
+    end
+    betam = 4*exp(-(V+60)/18);
+    alphah = 0.07*(exp(-(V+60)/20));
+    betah = 1/(exp(-(V+30)/10)+1);
+    
+    m = alpham/(alpham+betam);
+    
+    h = hinit;
+    
+    dVdt = (Iext -Gna*m^3*h*(V-Vna) - Gk*n^4*(V-Vk) - Gl*(V-Vl))/C;
+    
+    dndt = alphan*(1-n) - betan*n;
+    
+    dYdt = [dVdt;dndt]; 
+end
+
+
 function dYdt = hh(y)
     global Iext
     global Gk
@@ -702,7 +776,6 @@ function dYdt = hh(y)
     dhdt = alphah*(1-h) - betah*h;
     dYdt = [dVdt;dndt;dmdt;dhdt]; 
 end
-
 
 function dYdt = hh4ode(t,y)
     global Iext
