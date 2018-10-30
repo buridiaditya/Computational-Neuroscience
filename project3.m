@@ -66,9 +66,9 @@ varStore = containers.Map(keyset,valueset2);
 
 for i=keyset
     v1 = zeros(4,50,(20000/i)+1);
-    for j=1:4
+    parfor j=1:4
         v2 = zeros(1,50,(20000/i)+1);
-        parfor k=1:50
+        for k=1:50
             v3 = zeros(1,1,(20000/i)+1); 
             for l=All_Spike_Times{j,k}         
                 in = int64(l*1000/(i))+1;                            
@@ -85,6 +85,7 @@ for i = keyset
     meanStore(i) = mean(rateStore(i),2);
     varStore(i) = var(rateStore(i),0,2);
 end
+
 for j=1:4
     figure;
     index=0;
@@ -101,4 +102,83 @@ end
 
 %% Question 4
 
+%% PART B
 
+costs = [0,0.001,0.01,1,10,100];
+s = RandStream('mlfg6331_64');
+
+
+processedspikes = cell(4,50,201);
+parfor i=1:4
+    tempCell = cell(50,201)
+    for j=1:50
+        for k=All_Spike_Times(i,j)
+            index = int64(k/100)+1;
+            spiketrain = tempCell(j,index);
+            tempCell(j,index) = [spiketrain k];
+        end        
+    end
+    processedspikes(i) = tempCell;
+end
+
+
+
+parfor i=1:100 
+    y = datasample(s,0:199,8,'Replace',false);
+    
+    sampledspikes = zeros(4,)
+    
+    comparitions = zeros(400,400,6);
+    for j=1:4
+        for k=1:8
+            for l=1:50
+                for m=1:8 % compare with which 
+                    for n=1:50
+                        if (comparitions((k-1)*50+l,(m-1)*50+n) == 0 ) && ~(k==m && l==n)
+                            value = spkd_qpara(sampledspikes(j,k,l),sampledspikes(j,m,n),costs);
+                            comparitions((k-1)*50+l,(m-1)*50+n) = value;
+                            comparitions((m-1)*50+n,(k-1)*50+l) = value; 
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+
+function d=spkd_qpara(tli,tlj,costs)
+    %
+    % d=spkd(tli,tlj,costs) calculates the "spike time" distance
+    % (Victor & Purpura 1996) for a single costs
+    %
+    % tli: vector of spike times for first spike train
+    % tlj: vector of spike times for second spike train
+    % costs: costs per unit time to move a spike
+    %
+    % Copyright (c) 1999 by Daniel Reich and Jonathan Victor.
+    % Translated to Matlab by Daniel Reich from FORTRAN code by Jonathan Victor.
+
+    nspi=length(tli);
+    nspj=length(tlj);
+    if costs==0
+        d=abs(nspi-nspj);
+        return
+    elseif costs==Inf
+        d=nspi+nspj;
+        return
+    end
+    scr=zeros(nspi+1,nspj+1);
+    scr(:,1)=(0:nspi)';
+    scr(1,:)=(0:nspj);
+    scr=repmat(shiftdim(scr,-1),[length(costs),1,1]);
+    if nspi && nspj
+        for i=2:nspi+1
+            for j=2:nspj+1           
+                scr(:,i,j)=min(cat(3,scr(:,i-1,j)+1,scr(:,i,j-1)+1,scr(:,i-1,j-1)+costs'*abs(tli(i-1)-tlj(j-1))),[],3);
+            end
+        end
+    end
+    d=scr(:,nspi+1,nspj+1);
+end
