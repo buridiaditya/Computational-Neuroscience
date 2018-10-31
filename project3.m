@@ -3,11 +3,12 @@ load('data_cn_project_iii_a17.mat')
 
 %% Question 1
 % Auto correlation
+tic
 R = @(tou)(dot(Stimulus(51:end-50),Stimulus(51+tou:end-50+tou))/(length(Stimulus)-100) );
 
 Tou = -50:1:50;
 Auto = ones(size(Tou));
-tic
+
 parfor i=1:101
     Auto(i) = R(Tou(i));
 end
@@ -104,7 +105,8 @@ end
 toc
 %% Question 4 PART B
 tic
-costs = [0,0.001,0.01,1,10,100];
+costs = [10^-9,10^-6,0.0001,0.001,0.01,0.1,1,10,100,1000];
+qvalues = length(costs);
 s = RandStream('mlfg6331_64');
 
 processedspikes = cell(4,50,200);
@@ -126,7 +128,7 @@ toc
 
 %%
 tic
-confusionMatrixTotal = zeros(100,4,8,8,6); 
+confusionMatrixTotal = zeros(100,4,8,8,qvalues); 
 
 parfor i=1:100
     processedspi = load('samplespikes.mat');
@@ -134,8 +136,8 @@ parfor i=1:100
     
     y = datasample(s,1:200,8,'Replace',false);  
     
-    confusionMatrix = zeros(4,8,8,6);
-    comparitions = ones(400,400,6)*Inf;
+    confusionMatrix = zeros(4,8,8,qvalues);
+    comparitions = ones(400,400,qvalues)*Inf;
     
     for j=1:4
         perNeuron = processedspikes(j,:,:);
@@ -153,7 +155,7 @@ parfor i=1:100
                             %comparitions((m-1)*50+n,(k-1)*50+l,:) = value;                                                 
                         end
                 end
-                [argvalue, index] = min(reshape(comparitions(k,:,:),[400,6]),[],1);
+                [argvalue, index] = min(reshape(comparitions(k,:,:),[400,qvalues]),[],1);
                 index=ceil(index/50);                
                 %confusionMatrix(j,in1,index(1,1,:),[1,2,3,4,5,6]) = confusionMatrix(j,in1,index(1,1,:),[1,2,3,4,5,6]) + 1;
                 for o=1:length(index)
@@ -167,17 +169,22 @@ end
 toc
 
 %% Calculate mutual information
-
+tic
 
 MIData = cell(100,4);
 parfor i=1:100
     for j=1:4
         temp = [];
-        for k=1:6
+        for k=1:qvalues
             P12 = reshape(confusionMatrixTotal(i,j,:,:,k),[8,8]);
-            P1 = reshape(sum(P12,1)/8,[8,1]) + 10^-9;
-            P2 = reshape(sum(P12,2)/8,[1,8]) + 10^-9;     
-            Com = P12.*log((P12+10^-18)./(P1*P2));
+            P1 = reshape(sum(P12,1)/8,[8,1]) ;
+            P2 = reshape(sum(P12,2)/8,[1,8]) ;    
+%             if i==1 && j ==1 && k==1
+%                 disp(P1)
+%                 disp(P2')
+%                 disp(P12)
+%             end
+            Com = P12.*log((P12+10^-6)./(P1*P2+10^-6));
             
             MI = sum(Com);            
             MI = sum(MI);
@@ -187,14 +194,22 @@ parfor i=1:100
         MIData{i,j} = temp;
     end
 end
-
+toc
 %%
-figure;
-hold on
-for i=1:100
-    plot(1./costs,MIData{i,1})
-end
 
+for j=1:4
+    figure;
+    hold on
+    ylim([0 100])
+    xlim([-10 1000])
+
+
+    for i=1:100
+        %disp(squeeze(MIData{i,1}))
+        plot(1./costs,squeeze(MIData{i,1}),'--')
+    end
+
+end
 %%
 function d=spkd_qpara(tli,tlj,costs)
     %
