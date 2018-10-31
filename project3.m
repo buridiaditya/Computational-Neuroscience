@@ -165,12 +165,35 @@ parfor i=1:100
     confusionMatrixTotal(i,:,:,:,:) = confusionMatrix/50;
 end
 toc
+
 %% Calculate mutual information
 
 
+MIData = cell(100,4);
+parfor i=1:100
+    for j=1:4
+        temp = [];
+        for k=1:6
+            P12 = reshape(confusionMatrixTotal(i,j,:,:,k),[8,8]);
+            P1 = reshape(sum(P12,1)/8,[8,1]) + 10^-9;
+            P2 = reshape(sum(P12,2)/8,[1,8]) + 10^-9;     
+            Com = P12.*log((P12+10^-18)./(P1*P2));
+            
+            MI = sum(Com);            
+            MI = sum(MI);
+            
+            temp = [temp MI(1,1)];
+        end
+        MIData{i,j} = temp;
+    end
+end
 
-
-disp(reshape(confusionMatrixTotal(1,1,:,:,1),[8,8]))
+%%
+figure;
+hold on
+for i=1:100
+    plot(1./costs,MIData{i,1})
+end
 
 %%
 function d=spkd_qpara(tli,tlj,costs)
