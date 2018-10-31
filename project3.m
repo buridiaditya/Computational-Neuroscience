@@ -7,16 +7,18 @@ R = @(tou)(dot(Stimulus(51:end-50),Stimulus(51+tou:end-50+tou))/(length(Stimulus
 
 Tou = -50:1:50;
 Auto = ones(size(Tou));
+tic
 parfor i=1:101
     Auto(i) = R(Tou(i));
 end
+toc
 figure;
 plot(Tou,Auto);
 %disp(Auto)
 
 %% Question 2
 % PSTH - Trail averaged spike rate
-
+tic
 rates = zeros(4,15000);
 
 parfor i=1:4
@@ -53,9 +55,9 @@ title('Neuron 3')
 subplot(2,2,4);
 plot(1:15000,rates(4,:));
 title('Neuron 4')
-
+toc
 %% Question 3
-
+tic
 valueset = {zeros(4,50,2001),zeros(4,50,1001),zeros(4,50,401),zeros(4,50,201),zeros(4,50,101),zeros(4,50,41)};
 keyset = [10,20,50,100,200,500];
 rateStore = containers.Map(keyset,valueset);
@@ -99,55 +101,74 @@ for j=1:4
         plot(m1(:),v1(:),'.')
     end
 end
-
-%% Question 4
-
-%% PART B
-
+toc
+%% Question 4 PART B
+tic
 costs = [0,0.001,0.01,1,10,100];
 s = RandStream('mlfg6331_64');
 
-
 processedspikes = cell(4,50,201);
+
 parfor i=1:4
-    tempCell = cell(50,201)
+    tempCell = cell(50,201);
     for j=1:50
-        for k=All_Spike_Times(i,j)
-            index = int64(k/100)+1;
-            spiketrain = tempCell(j,index);
-            tempCell(j,index) = [spiketrain k];
+        for k=All_Spike_Times{i,j}
+            index = int64(k*1000/100)+1;
+            spiketrain = tempCell{j,index};
+            tempCell{j,index} = [spiketrain k];
         end        
     end
-    processedspikes(i) = tempCell;
+    processedspikes(i,:,:) = tempCell;
 end
 
+save( 'samplespikes.mat', 'processedspikes');
+toc
+%%
+disp(processedspikes{1,1,1}(1));
+processedspi = load('samplespikes.mat');
+%%
+tic
+confusionMatrixTotal = zeros(100,4,6,8,8); 
 
-
-parfor i=1:100 
-    y = datasample(s,0:199,8,'Replace',false);
-    
-    sampledspikes = zeros(4,)
-    
+processedspikes = processedspi.processedspikes;
+%parfor i=1:100
+    y = datasample(s,1:200,8,'Replace',false);  
+    confusionMatrix = zeros(4,6,8,8);
     comparitions = zeros(400,400,6);
     for j=1:4
+        perNeuron = processedspikes(j,1:end,1:end);
         for k=1:8
             for l=1:50
+                ST1 = perNeuron{1,l,y(k)};
                 for m=1:8 % compare with which 
                     for n=1:50
-                        if (comparitions((k-1)*50+l,(m-1)*50+n) == 0 ) && ~(k==m && l==n)
-                            value = spkd_qpara(sampledspikes(j,k,l),sampledspikes(j,m,n),costs);
-                            comparitions((k-1)*50+l,(m-1)*50+n) = value;
-                            comparitions((m-1)*50+n,(k-1)*50+l) = value; 
+                        if ~(k==m && l==n)
+                            value = spkd_qpara(ST1,perNeuron{1,n,y(m)},costs);                
+                            comparitions((k-1)*50+l,(m-1)*50+n,:) = value;
+                            %comparitions((m-1)*50+n,(k-1)*50+l,:) = value; 
+                        end
+                        if (k==m && l==n)
+                            comparitions((k-1)*50+l,(m-1)*50+n,:) = 100000;
                         end
                     end
                 end
-            end
+                [argvalue, index] = min(comparitions((k-1)*50+l,:,:),[],2);
+                index=ceil(index/50);
+                for o=1:length(index)
+                    confusionMatrix(j,o,k,index(1,1,o)) = confusionMatrix(j,o,k,index(1,1,o)) + 1;
+                end
+            end           
         end
     end
-end
+    confusionMatrixTotal(1,:,:,:,:) = confusionMatrix/50;
+%end
+toc
+%%
 
+arr = confusionMatrixTotal(1,1,1,1);
+disp(arr)
 
-
+%%
 function d=spkd_qpara(tli,tlj,costs)
     %
     % d=spkd(tli,tlj,costs) calculates the "spike time" distance
