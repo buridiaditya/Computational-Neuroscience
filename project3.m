@@ -105,73 +105,121 @@ end
 toc
 %% Question 4 PART B
 tic
-costs = [10^-9,10^-6,0.0001,0.001,0.01,0.1,1,10,100,1000];
+costs = [0,0.001,0.01,0.1,1,10,100];
 qvalues = length(costs);
 s = RandStream('mlfg6331_64');
 
 processedspikes = cell(4,50,200);
 
-parfor i=1:4
-    tempCell = cell(50,200);
+for i=1:4
+%    tempCell = cell(1,50,200);
     for j=1:50
+        temparray = [];
+        memory = 1;
         for k=All_Spike_Times{i,j}
             ind = ceil(k*1000/100);
-            spiketrain = tempCell{j,ind};
-            tempCell{j,ind} = [spiketrain k];
-        end        
+            %spiketrain = tempCell{1,j,ind};
+            %if isempty(tempCell{1,j,ind})
+            %    tempCell{1,j,ind} = [k*1000];   
+            %else            
+            %    tempCell{1,j,ind} = [spiketrain k*1000];
+            %end
+            if ind == memory
+                temparray = [temparray k];            
+            else
+                processedspikes{i,j,memory} = temparray;
+                memory = ind;
+                temparray = [];
+            end
+           
+        end  
+        processedspikes{i,j,memory} = temparray;
     end
-    processedspikes(i,:,:) = tempCell;
+    %processedspikes(i,:,:) = tempCell;
 end
 
 save( 'samplespikes.mat', 'processedspikes');
 toc
+%%
+
 
 %%
 tic
+
 confusionMatrixTotal = zeros(100,4,8,8,qvalues); 
 
 parfor i=1:100
-    processedspi = load('samplespikes.mat');
-    processedspikes = processedspi.processedspikes;
+   processedspi = load('samplespikes.mat');
+   processedspikes = processedspi.processedspikes;
     
-    y = datasample(s,1:200,8,'Replace',false);  
-    
+    y = sort(datasample(s,1:200,8,'Replace',false));  
+%     disp(y)
     confusionMatrix = zeros(4,8,8,qvalues);
     comparitions = ones(400,400,qvalues)*Inf;
     
     for j=1:4
-        perNeuron = processedspikes(j,:,:);
         for k=1:400
                 in1 = ceil(k/50);
-                ST1 = perNeuron{1,in1,y(in1)};
-                for m=1:400 % compare with which                     
+                ST1 = processedspikes{j,k-(ceil(k/50)-1)*50,y(in1)};               
+                for m=1:400 % compare with which                                    
                         if ~(k==m) 
                             if comparitions(k,m,:) == Inf
                                 in2 = ceil(m/50);
-                                value = spkd_qpara(ST1,perNeuron{1,in2,y(in2)},costs);                
+                                value = spkd_qpara(ST1,processedspikes{j,m-(ceil(m/50)-1)*50,y(in2)},costs); 
+%                                 if j==1 && k==52 && m==2
+%                                     disp(ST1)
+%                                     disp(processedspikes{j,m-(ceil(m/50)-1)*50,y(in2)})
+%                                     disp(value)
+%                                 end
                                 comparitions(k,m,:) = value;
                                 comparitions(m,k,:) = value;
+%                                 if j==1 && k==2 && m==52
+%                                     disp(comparitions(m,k,:));
+%                                     disp(comparitions(k,m,:));
+%                                 end
                             end
                             %comparitions((m-1)*50+n,(k-1)*50+l,:) = value;                                                 
                         end
                 end
-                [argvalue, index] = min(reshape(comparitions(k,:,:),[400,qvalues]),[],1);
-                index=ceil(index/50);                
+                [argvalue, index] = min(reshape(comparitions(k,:,:),[400, qvalues]),[],1);
+%                 if k==51 && j==1
+%                     disp(comparitions(k,:,3));
+%                     disp(index(3))
+%                 end
+                index=ceil(index/50); 
+                %if k == 157 && j==1
+                %    disp(index)
+                %end
                 %confusionMatrix(j,in1,index(1,1,:),[1,2,3,4,5,6]) = confusionMatrix(j,in1,index(1,1,:),[1,2,3,4,5,6]) + 1;
-                for o=1:length(index)
-                    confusionMatrix(j,in1,index(o),o) = confusionMatrix(j,in1,index(o),o) + 1;
-                end
-                       
+                for q=1:qvalues
+                    confusionMatrix(j,in1,index(q),q) = confusionMatrix(j,in1,index(q),q) + 1;                     
+                end                       
         end
+        %if j == 1
+        %    for o=1:qvalues
+        %        disp(reshape(confusionMatrix(j,:,:,o),[8,8]))
+        %    end
+        %end
     end
     confusionMatrixTotal(i,:,:,:,:) = confusionMatrix/50;
 end
+
 toc
+
+%%
+
+P12 = reshape(confusionMatrixTotal(1,1,:,:,3),[8,8]);
+P1 = reshape(sum(P12,1)/8,[8,1]) ;
+P2 = reshape(sum(P12,2)/8,[1,8]) ;
+disp(P1)
+disp(P2')
+disp(P12)
+
 
 %% Calculate mutual information
 tic
-
-MIData = cell(100,4);
+confusionMatrixTotal = confusionMatrixTotal/8; 
+MIData = zeros(100,4,qvalues);
 parfor i=1:100
     for j=1:4
         temp = [];
@@ -184,29 +232,41 @@ parfor i=1:100
 %                 disp(P2')
 %                 disp(P12)
 %             end
-            Com = P12.*log((P12+10^-6)./(P1*P2+10^-6));
+            MI=0;
             
-            MI = sum(Com);            
-            MI = sum(MI);
+            for l=1:8
+                for m=1:8
+                    if ~ (P12(l,m) == 0)
+                        MI = MI + P12(l,m)*log((P12(l,m))/(P1(m)*P2(l)));
+                    end
+                end
+            end
+            %Com(isnan(Com)) = 0;
+            %disp(Com)
             
-            temp = [temp MI(1,1)];
+            %MI = sum(Com);            
+            %MI = sum(MI);
+            disp(MI)
+            temp = [temp MI];
         end
-        MIData{i,j} = temp;
+        MIData(i,j,:) = temp;
     end
 end
 toc
-%%
 
+
+%%
 for j=1:4
     figure;
     hold on
-    ylim([0 100])
-    xlim([-10 1000])
+    ylim([0.5 1])
+    xlim([0 1000])
 
-
+    costsX = costs;
+    costsX(1) = 10^-9;
     for i=1:100
         %disp(squeeze(MIData{i,1}))
-        plot(1./costs,squeeze(MIData{i,1}),'--')
+        plot((1./costsX),squeeze(MIData(i,j,:)))
     end
 
 end
