@@ -9,72 +9,79 @@ R = @(tou)(dot(Stimulus(51:end-50),Stimulus(51+tou:end-50+tou))/(length(Stimulus
 Tou = -50:1:50;
 Auto = ones(size(Tou));
 
-parfor i=1:101
+for i=1:101
     Auto(i) = R(Tou(i));
 end
 toc
 figure;
+
+xlabel('time')
+ylabel('Auto(t)')
+
 plot(Tou,Auto);
 %disp(Auto)
 
 %% Question 2
 % PSTH - Trail averaged spike rate
 tic
-rates = zeros(4,15000);
+PSTH = zeros(4,20000);
 
-parfor i=1:4
-    v=zeros(1,15000);
+
+for i=1:4
+    v=zeros(1,20000);
     for j=1:50
         for k=All_Spike_Times{i,j}         
             in = int64(k*1000);            
-            if in<=15000
+            %if in<=15000
                 v(in) = v(in) + 1;
-            else
-                break;
-            end
+            %else
+            %    break;
+            %end
         end
     end
-    rates(i,:) = v/50;
+    PSTH(i,:) = v/50;
 end
 
-rates = rates*100;
+PSTH = PSTH*100;
 
 figure;
+xlabel('time')
+ylabel('10*spikes/sec')
 
 subplot(2,2,1);
-plot(1:15000,rates(1,:));
+plot(1:20000,PSTH(1,:));
 title('Neuron 1')
 
 subplot(2,2,2);
-plot(1:15000,rates(2,:));
+plot(1:20000,PSTH(2,:));
 title('Neuron 2')
 
 subplot(2,2,3);
-plot(1:15000,rates(3,:));
+plot(1:20000,PSTH(3,:));
 title('Neuron 3')
 
 subplot(2,2,4);
-plot(1:15000,rates(4,:));
+plot(1:20000,PSTH(4,:));
 title('Neuron 4')
 toc
 %% Question 3
 tic
-valueset = {zeros(4,50,2001),zeros(4,50,1001),zeros(4,50,401),zeros(4,50,201),zeros(4,50,101),zeros(4,50,41)};
+valueset = {zeros(4,50,2000),zeros(4,50,1000),zeros(4,50,400),zeros(4,50,200),zeros(4,50,100),zeros(4,50,40)};
 keyset = [10,20,50,100,200,500];
 rateStore = containers.Map(keyset,valueset);
 
-valueset2 = {zeros(4,2001),zeros(4,1001),zeros(4,401),zeros(4,201),zeros(4,101),zeros(4,41)};
+valueset2 = {zeros(4,2000),zeros(4,1000),zeros(4,400),zeros(4,200),zeros(4,100),zeros(4,40)};
 meanStore = containers.Map(keyset,valueset2);
 varStore = containers.Map(keyset,valueset2);
 
 for i=keyset
-    v1 = zeros(4,50,(20000/i)+1);
-    parfor j=1:4
-        v2 = zeros(1,50,(20000/i)+1);
+    v1 = zeros(4,50,ceil(20000/i));
+    for j=1:4
+        v2 = zeros(1,50,ceil(20000/i));
         for k=1:50
-            v3 = zeros(1,1,(20000/i)+1); 
+            v3 = zeros(1,1,ceil(20000/i)); 
             for l=All_Spike_Times{j,k}         
-                in = int64(l*1000/(i))+1;                            
+                in = ceil(l*1000/(i));                            
                 v3(1,1,in) = v3(1,1,in) + 1;
             end 
             v2(1,k,:) = v3(1,1,:);
@@ -92,18 +99,121 @@ end
 for j=1:4
     figure;
     index=0;
+    title(strcat('neuron',num2str(j)))
     for i = keyset
         index=index+1;
         m = meanStore(i);
         v = varStore(i);
         m1 = m(j,1,:);
         v1 = v(j,1,:);
+        
         subplot(2,3,index);
         plot(m1(:),v1(:),'.')
+        title(strcat('binsize ',num2str(i)))
+        xlabel('mean')
+        ylabel('variance')
     end
 end
 toc
-%% Question 4 PART B
+%%
+%  spiketrain = All_Spike_Times{1,1};
+%         indices = find(spiketrain*1000>100);
+%         filtertrain = spiketrain(indices)*1000;
+%         disp(Stimulus(int64(filtertrain)))
+%% Question 4
+tic
+STA = zeros(4,100);
+
+for i=1:4
+    for j=1:50
+        spiketrain = All_Spike_Times{i,j};
+        indices = find(spiketrain*1000>100);
+        filtertrain = spiketrain(indices)*1000;
+        for k=1:100
+            STA(i,k) = STA(i,k) + sum(Stimulus(int64(filtertrain-k)))/length(filtertrain);
+        end
+        
+    end
+end
+STA = STA/50;
+
+
+figure;
+for i=1:4
+    subplot(2,2,i);
+    
+    plot(1:100,STA(i,:))
+    title(strcat('neuron',num2str(i)))
+    xlabel('time')
+    ylabel('STA')
+end
+toc
+%%
+figure
+subplot(2,1,1)
+y = conv(Stimulus,STA(1,:),'same') ;
+plot(Stimulus(1:200));
+subplot(2,1,2)
+plot(y(1:200));
+
+figure
+subplot(2,1,1)
+y = conv(Stimulus,STA(2,:),'same') ;
+plot(Stimulus(1:200));
+subplot(2,1,2)
+plot(y(1:200));
+
+figure
+subplot(2,1,1)
+y = conv(Stimulus,STA(3,:),'same') ;
+plot(Stimulus(1:200));
+subplot(2,1,2)
+plot(y(1:200));
+
+figure
+subplot(2,1,1)
+y = conv(Stimulus,STA(4,:),'same') ;
+plot(Stimulus(1:200));
+subplot(2,1,2)
+plot(y(1:200));
+
+
+%% Question 5
+tic
+
+params = [];
+for i=1:4
+   
+    binsize=100;
+    y = conv(Stimulus,STA(i,:),'same');    
+    [N,edges,bins] = histcounts(y,binsize);
+    %disp(bins)
+    
+    %disp(PSTH(i,bins==4))
+    available_data = [];
+    bin_means = [];
+    for n = 1:binsize
+        
+       if ~isempty(PSTH(i,bins==n))
+        
+        bin_means = [bin_means mean(PSTH(i,bins==n))];
+        available_data = [available_data edges(n)];
+      end
+      %disp(bin_means(n))
+    end
+    %Xedges = edges(1,2:end);
+    subplot(2,2,i);
+    params = [params sigm_fit(available_data,bin_means)];
+    hold on;
+    plot(available_data,bin_means,'.');
+end
+toc
+%% Question 6
+
+
+
+
+%% PART B
 tic
 costs = [0,0.001,0.01,0.1,1,10,100];
 qvalues = length(costs);
@@ -141,9 +251,6 @@ end
 save( 'samplespikes.mat', 'processedspikes');
 toc
 %%
-
-
-%%
 tic
 
 confusionMatrixTotal = zeros(100,4,8,8,qvalues); 
@@ -155,9 +262,9 @@ parfor i=1:100
     y = sort(datasample(s,1:200,8,'Replace',false));  
 %     disp(y)
     confusionMatrix = zeros(4,8,8,qvalues);
-    comparitions = ones(400,400,qvalues)*Inf;
     
     for j=1:4
+        comparitions = ones(400,400,qvalues)*Inf;
         for k=1:400
                 in1 = ceil(k/50);
                 ST1 = processedspikes{j,k-(ceil(k/50)-1)*50,y(in1)};               
@@ -207,24 +314,37 @@ end
 toc
 
 %%
-
-P12 = reshape(confusionMatrixTotal(1,1,:,:,3),[8,8]);
-P1 = reshape(sum(P12,1)/8,[8,1]) ;
-P2 = reshape(sum(P12,2)/8,[1,8]) ;
-disp(P1)
-disp(P2')
-disp(P12)
-
+% 
+% P12 = reshape(confusionMatrixTotal(1,1,:,:,3),[8,8]);
+% P1 = reshape(sum(P12,1)/8,[8,1]) ;
+% P2 = reshape(sum(P12,2)/8,[1,8]) ;
+% disp(P1)
+% disp(P2')
+% disp(P12)
+% 
+% P12 = reshape(confusionMatrixTotal(1,2,:,:,3),[8,8]);
+% P1 = reshape(sum(P12,1)/8,[8,1]) ;
+% P2 = reshape(sum(P12,2)/8,[1,8]) ;
+% disp(P1)
+% disp(P2')
+% disp(P12)
+% 
+% P12 = reshape(confusionMatrixTotal(1,3,:,:,3),[8,8]);
+% P1 = reshape(sum(P12,1)/8,[8,1]) ;
+% P2 = reshape(sum(P12,2)/8,[1,8]) ;
+% disp(P1)
+% disp(P2')
+% disp(P12)
 
 %% Calculate mutual information
 tic
-confusionMatrixTotal = confusionMatrixTotal/8; 
+confusionMatrixNew = confusionMatrixTotal/8; 
 MIData = zeros(100,4,qvalues);
 parfor i=1:100
     for j=1:4
         temp = [];
         for k=1:qvalues
-            P12 = reshape(confusionMatrixTotal(i,j,:,:,k),[8,8]);
+            P12 = reshape(confusionMatrixNew(i,j,:,:,k),[8,8]);
             P1 = reshape(sum(P12,1)/8,[8,1]) ;
             P2 = reshape(sum(P12,2)/8,[1,8]) ;    
 %             if i==1 && j ==1 && k==1
@@ -246,28 +366,46 @@ parfor i=1:100
             
             %MI = sum(Com);            
             %MI = sum(MI);
-            disp(MI)
+%             disp(MI)
             temp = [temp MI];
         end
         MIData(i,j,:) = temp;
     end
 end
 toc
-
+%%
 
 %%
-for j=1:4
-    figure;
-    hold on
-    ylim([0.5 1])
-    xlim([0 1000])
 
-    costsX = costs;
-    costsX(1) = 10^-9;
-    for i=1:100
+meanData = reshape(mean(MIData,1),[4,qvalues]);
+stdData = reshape(std(MIData,1),[4,qvalues])/sqrt(100);
+disp(meanData)
+
+
+Ubound = meanData + 1.645*stdData;
+Lbound = meanData - 1.645*stdData;
+
+costsX = costs;
+costsX(1) = 10^-9;
+figure;
+for j=1:4
+    subplot(2,2,j);
+    hold on;
+    ylim([4.2 5.2])
+    xlim([-0.1 1])
+    
+    xlabel('1/q')
+    ylabel('Mutual Information')
+    title('1/q vs Mutual Information')
+    %xticks(sort(1./costsX))
+    %for i=1:100
         %disp(squeeze(MIData{i,1}))
-        plot((1./costsX),squeeze(MIData(i,j,:)))
-    end
+
+    plot((1./costsX),squeeze(meanData(j,:)))
+    plot((1./costsX),squeeze(Ubound(j,:)))
+    plot((1./costsX),squeeze(Lbound(j,:)))
+    %legend('90% interval upper bound','mean','90% interval lower bound')
+    %end
 
 end
 %%
@@ -308,102 +446,158 @@ end
 
 %% 
 
-function [clast,rmax,c]=spkdallq_recur(sa,sb)
-% function [clast,rmax,c]=spkdallqk_recur(sa,sb) does the recursion for the DP
-% algorithm for spike time distance.  It uses the method of spkdallq, but
-% reformats and produces arguments to be parallel to spkdallqk_recur.
+function [param,stat]=sigm_fit(x,y,fixed_params,initial_params,plot_flag)
+% Optimization of parameters of the sigmoid function
 %
-% sa: vector of spike times for first spike train
-% sb: vector of spike times for second spike train
-% c: array of critical lengthts of linkages. size(c)=[1+length(sa) 1+length(sb) 1+rmax]
-% rmax: maximum number of linkages (=min(length(sa),length(sb))
-% clast: vector of critical lengths for full spike trains, necessary for calculating all
-%    distances, which is done in spkdallq_dist, via spkdallq_final.
+% Syntax:
+%       [param]=sigm_fit(x,y)       
 %
-%  Copyright (c) by Jonathan Victor.
+%       that is the same that
+%       [param]=sigm_fit(x,y,[],[],[])     % no fixed_params, automatic initial_params
 %
-%    See also SPKD, SPKDALLQ, SPKDALLQK_RECUR.
+%       [param]=sigm_fit(x,y,fixed_params)        % automatic initial_params
+%       [param]=sigm_fit(x,y,[],initial_params)   % use it when the estimation is poor
+%       [param]=sigm_fit(x,y,fixed_params,initial_params,plot_flag)
 %
-tli=sa; %reformat the input arguments
-tlj=sb;
-nspi=length(tli);
-nspj=length(tlj);
-nij=min(nspi,nspj);
-lc=repmat(NaN,[nspi+1 nspj+1 nij]); % assume no length of movement
-if (nij>0)
+% param = [min, max, x50, slope]
 %
-%     best linkage length is a recursion based on linkages for shorter trains
+% if fixed_params=[NaN, NaN , NaN , NaN]        % or fixed_params=[]
+% optimization of "min", "max", "x50" and "slope" (default)
 %
-	for i=2:nspi+1
-   	for j=2:nspj+1
-         td=abs(tli(i-1)-tlj(j-1));
-         li=squeeze(lc(i-1,j,:));
-         lj=squeeze(lc(i,j-1,:));
-         lij=td+[0;squeeze(lc(i-1,j-1,1:nij-1))];
-         lc(i,j,:)=min([li,lj,lij],[],2);
-   	end
-	end
-end
-rmax=nij;
-c=cat(3,zeros(nspi+1,nspj+1),lc);
-clast=squeeze(c(end,end,:));
-return
+% if fixed_params=[0, 1 , NaN , NaN]
+% optimization of x50 and slope of a sigmoid of ranging from 0 to 1
+%
+%
+% Additional information in the second output, STAT
+% [param,stat]=sigm_fit(x,y,fixed_params,initial_params,plot_flag)
+%
+%
+% Example:
+% %% generate data vectors (x and y)
+% fsigm = @(param,xval) param(1)+(param(2)-param(1))./(1+10.^((param(3)-xval)*param(4)))
+% param=[0 1 5 1];  % "min", "max", "x50", "slope"
+% x=0:0.1:10;
+% y=fsigm(param,x) + 0.1*randn(size(x));
+%
+% %% standard parameter estimation
+% [estimated_params]=sigm_fit(x,y)
+%
+% %% parameter estimation with forced 0.5 fixed min
+% [estimated_params]=sigm_fit(x,y,[0.5 NaN NaN NaN])
+%
+% %% parameter estimation without plotting
+% [estimated_params]=sigm_fit(x,y,[],[],0)
+%
+%
+% Doubts, bugs: rpavao@gmail.com
+% Downloaded from http://www.mathworks.com/matlabcentral/fileexchange/42641-sigmoid-logistic-curve-fit
+
+% warning off
+
+x=x(:);
+y=y(:);
+
+if nargin<=1 %fail
+    fprintf('');
+    help sigm_fit
+    return
 end
 
-function dists=spkdallq_final(qlist,sa,sb,clast,rmax)
-% dists=spkdallq_final(qlist,sa,sb,clast,rmax) does the 
-% final portion of parallel DP spike tima algorithm, extended to simultaneous
-%  calculation for all values of q.
-%
-%    dists: a column vector of the distances
-%    qlist: a column vector of values of q. qklist(:,1): q-values
-%    sa, sb: spike times on the two spike trains
-%    clast, rmax: calculated by spkdallq_recur
-%
-% See spkdallqk.doc.
-%
-%  Copyright (c) by Jonathan Victor.
-%
-%    See also SPKDALLQ_RECUR, SPKDALLQ_DIST, SPKD, SPKDALLQ.
-%
-%
-na=length(sa);
-nb=length(sb);
-nq=length(qlist);
-qlist=reshape(qlist,[nq 1]);
-%
-%make column vector of na+nb-2r, indicating costs of deletions and insertions
-%
-nanbrs=(na+nb)*ones(1+rmax,1)-2*[0:rmax]';
-%
-% find the best strategy (all r (matched links) and all s (mismatched links)
-%
-clast=reshape(clast,[1+rmax 1]);
-for iq=1:nq
-   posscosts=qlist(iq,1)*clast+nanbrs;
-   dists(iq,1)=min(min(posscosts));
+automatic_initial_params=[quantile(y,0.05) quantile(y,0.95) NaN 1];
+if sum(y==quantile(y,0.5))==0
+    temp=x(y==quantile(y(2:end),0.5));    
+else
+    temp=x(y==quantile(y,0.5));
 end
-return
+automatic_initial_params(3)=temp(1);
+
+if nargin==2 %simplest valid input
+    fixed_params=NaN(1,4);
+    initial_params=automatic_initial_params;
+    plot_flag=1;    
+end
+if nargin==3
+    initial_params=automatic_initial_params;
+    plot_flag=1;    
+end
+if nargin==4
+    plot_flag=1;    
 end
 
-function [dists,clast,rmax]=spkdallq_dist(qlist,sa,sb)
-% function [dists,clast,rmax]=spkdallq_dist(qlist,sa,sb) does the 
-% recursion and final portion of the parallel DP single unit algorithm, extended to simultaneous
-%  calculation for all values of q.
-%
-%    qlist: a column vector of values of q. qklist(:,1): q-values.
-%    sa, sb: spike times on the two spike trains
-%    clast, rmax: calculated by spkdallq_recur.
-%
-% See spkdallqk.doc.
-%
-%  Copyright (c) by Jonathan Victor.
-%
-%    See also SPKDALLQ_RECUR, SPKDALLQ_DIST.
-%
-%do the recursion
-[clast,rmax,c]=spkdallq_recur(sa,sb);
-%do the final stage
-dists=spkdallq_final(qlist,sa,sb,clast,rmax);
-return
+if exist('fixed_params','var')
+    if isempty(fixed_params)
+        fixed_params=NaN(1,4);
+    end
+end
+if exist('initial_params','var')
+    if isempty(initial_params)
+        initial_params=automatic_initial_params;
+    end
+end
+if exist('plot_flag','var')
+    if isempty(plot_flag)
+        plot_flag=1;
+    end
+end
+
+%p(1)=min; p(2)=max-min; p(3)=x50; p(4)=slope como em Y=Bottom + (Top-Bottom)/(1+10^((LogEC50-X)*HillSlope))
+%f = @(p,x) p(1) + (p(2)-p(1)) ./ (1 + 10.^((p(3)-x)*p(4)));
+
+f_str='f = @(param,xval)';
+free_param_count=0;
+bool_vec=NaN(1,4);
+for i=1:4;
+    if isnan(fixed_params(i))
+        free_param_count=free_param_count+1;
+        f_str=[f_str ' param(' num2str(free_param_count) ')'];
+        bool_vec(i)=1;
+    else
+        f_str=[f_str ' ' num2str(fixed_params(i))];
+        bool_vec(i)=0;
+    end
+    if i==1; f_str=[f_str ' + (']; end
+    if i==2;
+        if isnan(fixed_params(1))            
+            f_str=[f_str '-param(1) )./ (   1 + 10.^( (']; 
+        else
+            f_str=[f_str '-' num2str(fixed_params(1)) ')./ (1 + 10.^((']; 
+        end
+    end    
+    if i==3; f_str=[f_str ' - xval ) *']; end
+    if i==4; f_str=[f_str ' )   );']; end
+end
+
+eval(f_str)
+
+[BETA,RESID,J,COVB,MSE] = nlinfit(x,y,f,initial_params(bool_vec==1));
+stat.param=BETA';
+
+% confidence interval of the parameters
+stat.paramCI = nlparci(BETA,RESID,'Jacobian',J);
+
+% confidence interval of the estimation
+[stat.ypred,delta] = nlpredci(f,x,BETA,RESID,'Covar',COVB);
+stat.ypredlowerCI = stat.ypred - delta;
+stat.ypredupperCI = stat.ypred + delta;
+
+% plot(x,y,'ko') % observed data
+% hold on
+% plot(x,ypred,'k','LineWidth',2)
+% plot(x,[lower,upper],'r--','LineWidth',1.5)
+
+free_param_count=0;
+for i=1:4;
+    if isnan(fixed_params(i))
+        free_param_count=free_param_count+1;
+        param(i)=BETA(free_param_count);
+    else
+        param(i)=fixed_params(i);
+    end    
+end
+    
+if plot_flag==1 
+    x_vector=min(x):(max(x)-min(x))/100:max(x);
+    plot(x,y,'k.',x_vector,f(param(isnan(fixed_params)),x_vector),'r-')
+    xlim([min(x) max(x)])
+end
 end
